@@ -2,10 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.Statement;
+import java.sql.*;
 
 public class RegisterForm extends JDialog {
     private JPanel registerPanel;
@@ -28,9 +25,8 @@ public class RegisterForm extends JDialog {
         SIGNUPButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (registerUser()) { // Zakładając, że ta metoda zwraca true, jeśli rejestracja się powiedzie
-                    registerUser();
-                    dispose(); // Zamknij RegisterForm
+                if (registerUser()) {
+                    dispose(); //
                 }
             }
         });
@@ -57,6 +53,12 @@ public class RegisterForm extends JDialog {
         }
         if (!password.equals(confirmPassword)) {
             JOptionPane.showMessageDialog(this, "Confirm Password does not match", "Try again", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+
+        // Nowy krok: sprawdzenie unikalności e-maila przed rejestracją
+        if (emailExists(email)) {
+            JOptionPane.showMessageDialog(this, "Email is already used. Please use a different email.", "Registration Failed", JOptionPane.ERROR_MESSAGE);
             return false;
         }
 
@@ -106,5 +108,26 @@ public class RegisterForm extends JDialog {
         }
 
         return user;
+    }
+
+    private boolean emailExists(String email) {
+        final String DB_URL = "jdbc:mysql://localhost/tictactoe?serverTimezone=UTC";
+        final String USERNAME = "root";
+        final String PASSWORD = "";
+        String sql = "SELECT COUNT(*) FROM users WHERE email=?";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, USERNAME, PASSWORD);
+             PreparedStatement preparedStatement = conn.prepareStatement(sql)) {
+
+            preparedStatement.setString(1, email);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getInt(1) > 0;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }
