@@ -46,7 +46,7 @@ public class GameMenu extends JFrame {
     }
 
     private void initializeUI() {
-        setTitle("Menu Gry");
+        setTitle("Game menu");
         setContentPane(gameMenuPanel);
         int width = 450, height = 475;
         setMinimumSize(new Dimension(width,height));
