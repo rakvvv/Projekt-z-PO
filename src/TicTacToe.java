@@ -1,6 +1,10 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 public class TicTacToe extends JFrame {
     private JPanel mainPanel;
@@ -26,8 +30,8 @@ public class TicTacToe extends JFrame {
     private JLabel fieldPanelLabel8;
     private JLabel fieldPanelLabel9;
     private JButton resetButton;
-    private JButton playerSymbolButton;
     private JButton playerStartButton;
+    private User user;
 
     private final JPanel[][] fieldPanels = {
             {fieldPanel1, fieldPanel2, fieldPanel3},
@@ -44,37 +48,25 @@ public class TicTacToe extends JFrame {
     private int[][] fieldStatus = new int[3][3];
     private int currentPlayer = 1; // 1 for X, 2 for O
     private boolean endGame = false;
-    private char playerSymbol = 'X'; // Default player symbol
     private boolean playerStarts = true; // Default player starts first
 
-    public static void main(String[] args) {
-        new TicTacToe().setVisible(true);
-    }
 
-    public TicTacToe() {
+    public TicTacToe(User user) {
+        this.user = user;
         initializeUI();
+        setVisible(true);
 
         exitButton.addActionListener(e -> dispose());
 
         resetButton.addActionListener(e -> resetGame());
 
-        playerSymbolButton.addActionListener(e -> {
-            if (playerSymbol == 'X') {
-                playerSymbol = 'O';
-                playerSymbolButton.setText("Symbol: O");
-            } else {
-                playerSymbol = 'X';
-                playerSymbolButton.setText("Symbol: X");
-            }
-            resetGame();
-        });
 
         playerStartButton.addActionListener(e -> {
             playerStarts = !playerStarts;
             if (playerStarts) {
-                playerStartButton.setText("Player Starts First");
+                playerStartButton.setText("Gracz zaczyna pierwszy");
             } else {
-                playerStartButton.setText("Computer Starts First");
+                playerStartButton.setText("Komputer zaczyna pierwszy");
                 makeComputerMove();
             }
             resetGame();
@@ -94,7 +86,24 @@ public class TicTacToe extends JFrame {
             }
         }
 
+        Font font = new Font("Arial Black", Font.BOLD, 50);
+        for (int i = 0; i < fieldPanelsLabels.length; i++) {
+            for (int j = 0; j < fieldPanelsLabels.length; j++) {
+                fieldPanelsLabels[i][j].setText("");
+                fieldPanelsLabels[i][j].setFont(font);
+            }
+        }
+
         resetGame();
+
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setVisible(false);
+                GameMenu gameMenu = new GameMenu(user);
+                gameMenu.setVisible(true);
+            }
+        });
     }
 
     private void initializeUI() {
@@ -109,6 +118,8 @@ public class TicTacToe extends JFrame {
         if (!endGame) {
             if (fieldStatus[rowId][columnId] == 0) {
                 fieldStatus[rowId][columnId] = currentPlayer;
+
+                fieldPanels[rowId][columnId].setBackground(new Color(242, 119, 119));
                 updateUI();
 
                 int result = checkGameResult(fieldStatus); // Poprawiono przekazywanie argumentu
@@ -128,22 +139,40 @@ public class TicTacToe extends JFrame {
             }
         }
     }
-
-
     private void switchPlayer() {
         currentPlayer = (currentPlayer == 1) ? 2 : 1;
     }
 
     private void makeComputerMove() {
         if (!endGame) {
-            int[] bestMove = minimax(fieldStatus, 0, true);
-            if (bestMove[1] != -1 && bestMove[2] != -1) {
-                fieldStatus[bestMove[1]][bestMove[2]] = currentPlayer;
-                switchPlayer();
-                updateUI();
+            if (isBoardEmpty(fieldStatus)) { // Sprawdza, czy to pierwszy ruch komputera
+                // Wybierz optymalne pole na początek, np. środek lub róg
+                int startRow = 1; // Dla środka
+                int startColumn = 1; // Dla środka
+                fieldStatus[startRow][startColumn] = currentPlayer;
+                fieldPanels[startRow][startColumn].setBackground(new Color(119, 242, 152));
+            } else {
+                int[] bestMove = minimax(fieldStatus, 0, true);
+                if (bestMove[1] != -1 && bestMove[2] != -1) {
+                    fieldStatus[bestMove[1]][bestMove[2]] = currentPlayer;
+                    fieldPanels[bestMove[1]][bestMove[2]].setBackground(new Color(119, 242, 152));
+                }
             }
+            switchPlayer();
+            updateUI();
         }
     }
+    private boolean isBoardEmpty(int[][] board) {
+        for (int i = 0; i < board.length; i++) {
+            for (int j = 0; j < board[i].length; j++) {
+                if (board[i][j] != 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
 
     private int[] minimax(int[][] board, int depth, boolean isMaximizing) {
         if (isGameOver(board)) {
@@ -252,17 +281,27 @@ public class TicTacToe extends JFrame {
 
     private void handleGameResult(int result) {
         endGame = true;
+        String resultText;
+
         if (result == 0) {
-            resultLabel.setText("It's a Tie!");
+            resultText = "It's a Tie!";
+        } else if (playerStarts && result == 1 || !playerStarts && result == 2) {
+            resultText = "Gracz zwyciężył!";
         } else {
-            resultLabel.setText("Player " + getSymbolForPlayer(result) + " wins!");
+            resultText = "Komputer zwyciężył!";
         }
+
+        resultLabel.setText(resultText);
+        addGameResultToDatabase(resultText,user.id);
     }
 
     private void resetGame() {
+        Color color = new Color(191, 191, 191);
         for (int i = 0; i < fieldStatus.length; i++) {
             for (int j = 0; j < fieldStatus[i].length; j++) {
                 fieldStatus[i][j] = 0;
+                fieldPanels[i][j].setBackground(color);
+                fieldPanelsLabels[i][j].setText("");
             }
         }
 
@@ -276,4 +315,23 @@ public class TicTacToe extends JFrame {
             updateUI();
         }
     }
+
+    private void addGameResultToDatabase(String result, int userId) { // Dodajemy parametr userId
+        final String dbUrl = "jdbc:mysql://localhost/tictactoe?serverTimezone=UTC";
+        final String username = "root";
+        final String password = "";
+
+        try (Connection conn = DriverManager.getConnection(dbUrl, username, password);
+             PreparedStatement ps = conn.prepareStatement("INSERT INTO game_results (result, user_id) VALUES (?, ?)")) {
+
+            ps.setString(1, result);
+            ps.setInt(2, userId); // Ustawiamy userId jako drugi parametr
+            ps.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Błąd podczas zapisywania wyniku gry", "Błąd", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
 }

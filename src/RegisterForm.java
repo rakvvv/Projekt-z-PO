@@ -15,8 +15,8 @@ public class RegisterForm extends JDialog {
     private JPasswordField confirmPasswordField;
     private JButton SIGNUPButton;
     private JButton cancelButton;
-    public RegisterForm(JFrame parent){
-        super(parent);
+    public RegisterForm(Window parent) {
+        super(parent, ModalityType.APPLICATION_MODAL);
         setTitle("Create a new account");
         setContentPane(registerPanel);
         int width = 450, height = 475;
@@ -28,7 +28,10 @@ public class RegisterForm extends JDialog {
         SIGNUPButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                registerUser();
+                if (registerUser()) { // Zakładając, że ta metoda zwraca true, jeśli rejestracja się powiedzie
+                    registerUser();
+                    dispose(); // Zamknij RegisterForm
+                }
             }
         });
         cancelButton.addActionListener(new ActionListener() {
@@ -40,39 +43,32 @@ public class RegisterForm extends JDialog {
 
         setVisible(true);
     }
-    private void registerUser() {
+
+
+    private boolean registerUser() {
         String name = nameField.getText();
         String email = emailField.getText();
         String password = String.valueOf(passwordField.getPassword());
         String confirmPassword = String.valueOf(confirmPasswordField.getPassword());
 
-        if (name.isEmpty() || email.isEmpty() || password.isEmpty()){
-            JOptionPane.showMessageDialog(this,
-                    "Please enter all fields",
-                    "Try again",
-                    JOptionPane.ERROR_MESSAGE);
-            return;
+        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter all fields", "Try again", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
-        if(!password.equals(confirmPassword)){
-            JOptionPane.showMessageDialog(this,
-                    "Confirm Passowrd does not match",
-                    "Try again",
-                    JOptionPane.ERROR_MESSAGE);
-            return;
+        if (!password.equals(confirmPassword)) {
+            JOptionPane.showMessageDialog(this, "Confirm Password does not match", "Try again", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
 
-        user = addUserToDatabase(name, email,password);
-        if (user != null)
-            dispose();
-        else {
-            JOptionPane.showMessageDialog(this,
-                    "Failed to register new user",
-                    "Try again",
-                    JOptionPane.ERROR_MESSAGE);
+        user = addUserToDatabase(name, email, password);
+        if (user != null) {
+            JOptionPane.showMessageDialog(this, "Registration successful. Please log in.", "Success", JOptionPane.INFORMATION_MESSAGE);
+            dispose(); // Close the RegisterForm
+            return true;
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to register new user", "Try again", JOptionPane.ERROR_MESSAGE);
+            return false;
         }
-
-
-
     }
     public User user;
     private User addUserToDatabase(String name,String email,String password){
@@ -110,13 +106,5 @@ public class RegisterForm extends JDialog {
         }
 
         return user;
-    }
-    public static void main(String[] args) {
-        RegisterForm myForm = new RegisterForm(null);
-        User user = myForm.user;
-        if( user !=null)
-            System.out.println("Successful registration of: "+ user.name);
-        else
-            System.out.println("Registration canceled");
     }
 }
