@@ -119,7 +119,7 @@ public class TicTacToe extends JFrame {
             if (fieldStatus[rowId][columnId] == 0) {
                 fieldStatus[rowId][columnId] = currentPlayer;
 
-                fieldPanels[rowId][columnId].setBackground(new Color(242, 119, 119));
+                fieldPanels[rowId][columnId].setBackground(new Color(242, 119, 118));
                 updateUI();
 
                 int result = checkGameResult(fieldStatus); // Poprawiono przekazywanie argumentu
